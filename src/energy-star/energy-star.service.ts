@@ -140,9 +140,12 @@ export class EnergyStarService {
       }
       const data = response.data;
       const xmlData = await parseStringPromise(data);
-      console.log(xmlData);
+      console.log("xmlData", xmlData);
       // save the data to the database
       // format the data to be saved to the database based on the schema
+      if (!xmlData?.response) {
+        return;
+      }
       const formattedData = await Promise.all(xmlData?.response?.links[0]?.link?.map(async(reading: any) =>{ 
         let data = await this.fetchMeterDetails(reading.$.id);
         return data;
