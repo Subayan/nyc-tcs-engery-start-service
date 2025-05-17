@@ -5,6 +5,7 @@ import { EnergyStarMappingData } from './schemas/energy-star.schema';
 import { ElectricityReadingRepository } from './electricity-reading.repository';
 import axios from 'axios';
 import { parseStringPromise } from 'xml2js';
+import { BuildingRepository } from './building.repository';
 
 
 const UTILITY_MAP = {
@@ -23,6 +24,7 @@ export class EnergyStarService {
     private configService: ConfigService,
     private energyStarRepository: EnergyStarRepository,
     private electricityReadingRepository: ElectricityReadingRepository,
+    private buildingRepository: BuildingRepository,
   ) {}
 
 
@@ -61,6 +63,37 @@ export class EnergyStarService {
     //   data.meters.map(async (meter: any) => {
     //     await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
     //   });
+    }
+  }
+
+  async fetchEnergyStarRating(buildingId: string) {
+    const apiUsername = process.env.ENERGY_STAR_USERNAME;
+    const apiPassword = process.env.ENERGY_STAR_PASSWORD;
+    let mappingData = await this.energyStarRepository.findOne({buildingId: buildingId});
+    if (!mappingData) {
+      return;
+    }
+    let propertyId = mappingData.energyStarPropertyId;
+
+    const apiUrl = `${process.env.ENERGYSTAR_API_URL}/property/${propertyId}/metrics?year=${new Date().getFullYear()}&month=1`;
+
+    try {
+        const response = await axios.get(apiUrl, {
+            headers: {
+              'Authorization': `Basic ${Buffer.from(`${apiUsername}:${apiPassword}`).toString('base64')}`,
+              'PM-Metrics': 'score',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+        const data = response.data;
+        const xmlData = await parseStringPromise(data);
+        console.log(xmlData);
+        this.buildingRepository.updateByBuildingId(buildingId, {energyStarScorePro: xmlData?.propertyMetrics?.metric?.[0]?.value?.[0]});
+        return xmlData;
+        
+    } catch (error) {
+        console.error('Error fetching energy star rating:', error);
+        throw error;
     }
   }
 
