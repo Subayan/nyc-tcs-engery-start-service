@@ -59,6 +59,7 @@ export class EnergyStarService {
       console.log(data);
       for (let meter of data.meters) {
         await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
+        this.fetchEnergyStarRating(data.buildingId)
       }
     //   data.meters.map(async (meter: any) => {
     //     await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
@@ -75,7 +76,7 @@ export class EnergyStarService {
     }
     let propertyId = mappingData.energyStarPropertyId;
 
-    const apiUrl = `${process.env.ENERGYSTAR_API_URL}/property/${propertyId}/metrics?year=${new Date().getFullYear()}&month=1`;
+    const apiUrl = `${process.env.ENERGYSTAR_API_URL}/property/${propertyId}/metrics?year=2024&month=11`;
 
     try {
         const response = await axios.get(apiUrl, {
@@ -88,7 +89,9 @@ export class EnergyStarService {
         const data = response.data;
         const xmlData = await parseStringPromise(data);
         console.log(xmlData);
-        this.buildingRepository.updateByBuildingId(buildingId, {energyStarScorePro: xmlData?.propertyMetrics?.metric?.[0]?.value?.[0]});
+        if (!isNaN(xmlData?.propertyMetrics?.metric?.[0]?.value?.[0])) {
+            this.buildingRepository.updateByBuildingId(buildingId, {energyStarScorePro: xmlData?.propertyMetrics?.metric?.[0]?.value?.[0]});
+        }
         return xmlData;
         
     } catch (error) {
