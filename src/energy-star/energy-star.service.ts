@@ -59,7 +59,7 @@ export class EnergyStarService {
       console.log(data);
       for (let meter of data.meters) {
         await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
-        this.fetchEnergyStarRating(data.buildingId)
+        await this.fetchEnergyStarRating(data.buildingId)
       }
     //   data.meters.map(async (meter: any) => {
     //     await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
