@@ -23,6 +23,25 @@ export class EnergyStarController {
 
   @Get('fetch-energy-star-rating')
   fetchEnergyStarRating(@Query('buildingId') buildingId: string) {
+    console.log('fetchEnergyStarRating', buildingId);
     return this.energyStarService.fetchEnergyStarRating(buildingId);
+  }
+
+  @Get('ratings')
+  getEnergyStarRatingsByBuildingId(@Query('buildingId') buildingId: string) {
+    return this.energyStarService.getEnergyStarRatingsByBuildingId(buildingId);
+  }
+
+  @Get('ratings/latest')
+  getLatestEnergyStarRating(@Query('buildingId') buildingId: string) {
+    return this.energyStarService.getLatestEnergyStarRating(buildingId);
+  }
+
+  @Get('ratings/latest-by-year')
+  getLatestEnergyStarRatingByYear(
+    @Query('buildingId') buildingId: string,
+    @Query('year') year: number,
+  ) {
+    return this.energyStarService.getLatestEnergyStarRatingByYear(buildingId, year);
   }
 }
