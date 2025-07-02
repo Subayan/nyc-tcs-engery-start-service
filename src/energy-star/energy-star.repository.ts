@@ -23,6 +23,10 @@ export class EnergyStarRepository {
     return this.energyStarModel.findById(id).exec();
   }
 
+  async findOne(query: any): Promise<EnergyStarDocument | null> {
+    return this.energyStarModel.findOne(query).exec();
+  }
+
   async update(
     id: string,
     data: Partial<EnergyStarMappingData>,

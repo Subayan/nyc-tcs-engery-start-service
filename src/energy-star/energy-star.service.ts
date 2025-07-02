@@ -3,8 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { EnergyStarRepository } from './energy-star.repository';
 import { EnergyStarMappingData } from './schemas/energy-star.schema';
 import { ElectricityReadingRepository } from './electricity-reading.repository';
+import { EnergyStarRatingRepository } from './energy-star-rating.repository';
+import { EnergyStarRating } from './schemas/energy-star-rating.schema';
 import axios from 'axios';
 import { parseStringPromise } from 'xml2js';
+import { BuildingRepository } from './building.repository';
 
 
 const UTILITY_MAP = {
@@ -23,6 +26,8 @@ export class EnergyStarService {
     private configService: ConfigService,
     private energyStarRepository: EnergyStarRepository,
     private electricityReadingRepository: ElectricityReadingRepository,
+    private energyStarRatingRepository: EnergyStarRatingRepository,
+    private buildingRepository: BuildingRepository,
   ) {}
 
 
@@ -47,6 +52,18 @@ export class EnergyStarService {
     return this.energyStarRepository.delete(id);
   }
 
+  async getEnergyStarRatingsByBuildingId(buildingId: string) {
+    return this.energyStarRatingRepository.findByBuildingId(buildingId);
+  }
+
+  async getLatestEnergyStarRating(buildingId: string) {
+    return this.energyStarRatingRepository.findLatestByBuildingId(buildingId);
+  }
+
+  async getLatestEnergyStarRatingByYear(buildingId: string, year: number) {
+    return this.energyStarRatingRepository.findLatestByBuildingIdAndYear(buildingId, year);
+  }
+
 
   async fetchAndSaveAllEnergyReadings() {
     // read all mapping data from the database and use cursor to iterate over the data
@@ -58,10 +75,101 @@ export class EnergyStarService {
       for (let meter of data.meters) {
         await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
       }
+    await this.fetchEnergyStarRating(data.buildingId)
     //   data.meters.map(async (meter: any) => {
     //     await this.fetchAndSaveElectricityReadings(data.buildingId, meter.id, meter.type);
     //   });
     }
+  }
+
+  async fetchEnergyStarRating(buildingId: string) {
+    const apiUsername = process.env.ENERGY_STAR_USERNAME;
+    const apiPassword = process.env.ENERGY_STAR_PASSWORD;
+    
+    let mappingData = await this.energyStarRepository.findOne({buildingId: buildingId});
+    if (!mappingData) {
+      console.log(`No mapping data found for building: ${buildingId}`);
+      return;
+    }
+    
+    let propertyId = mappingData.energyStarPropertyId;
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const ratingsData: Partial<EnergyStarRating>[] = [];
+
+    // Fetch data for the last 3 years
+    for (let year = currentYear - 2; year <= currentYear; year++) {
+      for (let month = 1; month <= 12; month++) {
+        // Skip future months for current year
+        if (year === currentYear && month > currentDate.getMonth() + 1) {
+          continue;
+        }
+
+        try {
+          // Check if we already have this data
+          const existingRating = await this.energyStarRatingRepository.findOne({
+            buildingId,
+            energyStarPropertyId: propertyId,
+            year,
+            month
+          });
+
+          if (existingRating) {
+            console.log(`Rating already exists for ${buildingId} - ${year}/${month}, skipping...`);
+            continue;
+          }
+
+          const apiUrl = `${process.env.ENERGYSTAR_API_URL}/property/${propertyId}/metrics?year=${year}&month=${month}`;
+
+          const response = await axios.get(apiUrl, {
+            headers: {
+              'Authorization': `Basic ${Buffer.from(`${apiUsername}:${apiPassword}`).toString('base64')}`,
+              'PM-Metrics': 'score',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+
+          const data = response.data;
+          const xmlData = await parseStringPromise(data);
+          
+          if (xmlData?.propertyMetrics?.metric) {
+            const metrics = xmlData.propertyMetrics.metric;
+            const scoreMetric = metrics.find((metric: any) => metric.$.name === 'score');
+            
+                         if (scoreMetric && !isNaN(scoreMetric.value?.[0])) {
+               const ratingData: Partial<EnergyStarRating> = {
+                 buildingId,
+                 energyStarPropertyId: propertyId,
+                 year,
+                 month,
+                 score: parseFloat(scoreMetric.value[0]),
+                 fetchedAt: new Date()
+               };
+
+
+
+              // Save the rating data
+              await this.energyStarRatingRepository.upsert(ratingData);
+              ratingsData.push(ratingData);
+              
+              console.log(`Saved Energy Star rating for ${buildingId} - ${year}/${month}: ${ratingData.score}`);
+            }
+          }
+
+          // Add a small delay to avoid overwhelming the API
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+        } catch (error) {
+          if (error.response?.status === 404) {
+            console.log(`No data available for ${buildingId} - ${year}/${month}`);
+          } else {
+            console.error(`Error fetching energy star rating for ${buildingId} - ${year}/${month}:`, error.message);
+          }
+        }
+      }
+    }
+
+    return ratingsData;
   }
 
   async fetchAndSaveElectricityReadings(buildingId: string, meterNumber: string, utilityType: string) {
