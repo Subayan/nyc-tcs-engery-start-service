@@ -13,11 +13,13 @@ import { BuildingRepository } from './building.repository';
 const UTILITY_MAP = {
     'District Steam': 'steam',
     'Electric': 'electricity',
+    'Natural Gas': 'gas',
 }
 
 const UNIT_MAP = {
     'District Steam': 'kWh',
     'Electric': 'kWh',
+    'Natural Gas': 'therms',
 }
 
 @Injectable()
