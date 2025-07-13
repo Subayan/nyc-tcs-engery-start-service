@@ -14,12 +14,14 @@ const UTILITY_MAP = {
     'District Steam': 'steam',
     'Electric': 'electricity',
     'Natural Gas': 'gas',
+    'Water': 'water',
 }
 
 const UNIT_MAP = {
     'District Steam': 'kWh',
     'Electric': 'kWh',
     'Natural Gas': 'therms',
+    'Water': 'cf',
 }
 
 @Injectable()
