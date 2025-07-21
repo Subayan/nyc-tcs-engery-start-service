@@ -14,14 +14,14 @@ const UTILITY_MAP = {
     'District Steam': 'steam',
     'Electric': 'electricity',
     'Natural Gas': 'gas',
-    'Water': 'water',
+    'Municipally Supplied Potable Water - Indoor': 'water',
 }
 
 const UNIT_MAP = {
     'District Steam': 'kWh',
     'Electric': 'kWh',
     'Natural Gas': 'therms',
-    'Water': 'cf',
+    'Municipally Supplied Potable Water - Indoor': 'cf',
 }
 
 @Injectable()
@@ -102,7 +102,7 @@ export class EnergyStarService {
     const ratingsData: Partial<EnergyStarRating>[] = [];
 
     // Fetch data for the last 3 years
-    for (let year = currentYear - 2; year <= currentYear; year++) {
+    for (let year = currentYear - 4; year <= currentYear; year++) {
       for (let month = 1; month <= 12; month++) {
         // Skip future months for current year
         if (year === currentYear && month > currentDate.getMonth() + 1) {
